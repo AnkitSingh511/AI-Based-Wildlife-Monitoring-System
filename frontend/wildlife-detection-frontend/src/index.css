@@ -1,0 +1,137 @@
+/* ==========================================================================
+   LANDING & SIMULATION UTILITIES
+   ========================================================================== */
+
+.gradient-text {
+  background: linear-gradient(
+    135deg,
+    #ffffff 30%,
+    #34d399 100%
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+
+/* ==========================================================================
+   ZONE BADGE
+   ========================================================================== */
+
+.badge-zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  padding: 0.25rem 0.65rem;
+
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  border-radius: 999px;
+
+  background-color: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+
+/* ==========================================================================
+   FEATURE CARD
+   ========================================================================== */
+
+.feature-card {
+  background-color: var(--bg-surface);
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 14px;
+
+  padding: 1.75rem;
+
+  height: 100%;
+
+  transition:
+    border-color 0.3s ease,
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+  border-color: var(--primary);
+
+  transform: translateY(-3px);
+
+  box-shadow: var(--shadow);
+}
+
+
+/* ==========================================================================
+   CAMERA FEED SIMULATION
+   ========================================================================== */
+
+.camera-feed-simulation {
+  position: relative;
+
+  border-radius: 14px;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at center,
+      #1b3528 0%,
+      #0c1712 100%
+    );
+
+  border: 1px solid var(--border-color);
+
+  min-height: 320px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  padding: 1.25rem;
+
+  box-shadow: var(--shadow);
+}
+
+
+/* ==========================================================================
+   DETECTION BOUNDING BOX
+   ========================================================================== */
+
+.bounding-box {
+  border: 2px dashed #10b981;
+
+  border-radius: 8px;
+
+  background-color: rgba(16, 185, 129, 0.08);
+
+  padding: 1.25rem;
+
+  position: relative;
+
+  backdrop-filter: blur(2px);
+}
+
+:root {
+  --bg-dark: #07110d;
+  --bg-surface: #0d1914;
+  --bg-card: #111f18;
+
+  --primary: #10b981;
+  --primary-hover: #059669;
+  --accent: #34d399;
+
+  --text-white: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border-color: rgba(148, 163, 184, 0.15);
+
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}

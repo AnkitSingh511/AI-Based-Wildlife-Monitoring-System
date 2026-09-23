@@ -15,10 +15,16 @@
   --accent-border: rgba(52, 211, 153, 0.3);
 
   --text-white: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 
-  --border-color: rgba(148, 163, 184, 0.15);
+  --bs-body-color: #f8fafc;
+  --bs-body-bg: #07110d;
+  --bs-secondary-color: #cbd5e1;
+  --bs-secondary-rgb: 203, 213, 225;
+
+  --border-color: rgba(148, 163, 184, 0.2);
 
   --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -371,4 +377,155 @@ body,
 
 body {
   color: var(--text-white);
+}
+
+/* ==========================================================================
+   TEXT VISIBILITY & CONTRAST OVERRIDES
+   ========================================================================== */
+
+.text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+/* Nav links contrast */
+.nav-link {
+  color: var(--text-secondary) !important;
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link:focus {
+  color: #ffffff !important;
+}
+
+/* Dark badges and outline buttons contrast */
+.badge.bg-dark {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+}
+
+.btn-dark {
+  background-color: #111f18 !important;
+  border-color: rgba(203, 213, 225, 0.3) !important;
+  color: #f1f5f9 !important;
+}
+
+.btn-dark:hover,
+.btn-dark:focus {
+  background-color: #1a2e24 !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+}
+
+.btn-outline-danger {
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, 0.5) !important;
+  background-color: transparent !important;
+}
+
+.btn-outline-danger:hover,
+.btn-outline-danger:focus {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+/* Button focus & disabled contrast */
+.btn-wildlife-primary:focus {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35);
+  outline: none;
+}
+
+.btn-wildlife-primary:disabled {
+  background-color: #059669;
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-wildlife-outline:focus {
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.35);
+  outline: none;
+}
+
+.btn-wildlife-outline:disabled {
+  color: rgba(52, 211, 153, 0.5);
+  border-color: rgba(52, 211, 153, 0.2);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Code tags contrast */
+code {
+  color: #6ee7b7 !important;
+  background-color: rgba(16, 185, 129, 0.12);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   FORM CONTROLS & UTILITIES
+   ========================================================================== */
+
+.wildlife-input,
+.wildlife-select {
+  background-color: #07110d;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--text-white);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  width: 100%;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wildlife-input:focus,
+.wildlife-select:focus {
+  background-color: #050d0a;
+  border-color: var(--primary);
+  color: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
+.wildlife-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.wildlife-input:disabled,
+.wildlife-select:disabled {
+  background-color: #0b1510;
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.15);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.wildlife-select option {
+  background-color: #0d1914;
+  color: #f8fafc;
+}
+
+.wildlife-alert-danger {
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.wildlife-alert-success {
+  background-color: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
 }

@@ -128,10 +128,19 @@
   --accent: #34d399;
 
   --text-white: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 
-  --border-color: rgba(148, 163, 184, 0.15);
+  --border-color: rgba(148, 163, 184, 0.2);
 
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
 }

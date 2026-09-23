@@ -27,9 +27,10 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
-    // Default server error
-    return res.status(500).json({
-        message: "Internal server error"
+    // Specific status or default server error
+    const statusCode = err.statusCode || err.status || 500;
+    return res.status(statusCode).json({
+        message: err.message || "Internal server error"
     });
 };
 

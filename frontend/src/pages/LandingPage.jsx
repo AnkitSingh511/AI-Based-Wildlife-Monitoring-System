@@ -4,16 +4,47 @@
    ========================================================================== */
 
 
-   import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import detectionService from "../services/detectionService";
+
+const SPECIES_ICONS = {
+  Tiger: "🐅",
+  Elephant: "🐘",
+  Deer: "🦌",
+  Leopard: "🐆",
+  "Wild Boar": "🐗",
+  Peacock: "🦚",
+  Jackal: "🐺",
+};
+
 function LandingPage() {
-  // Standard Sample Detection Data
-  const sampleDetection = {
+  const [latestDetection, setLatestDetection] = useState(null);
+
+  useEffect(() => {
+    detectionService
+      .getAllDetections()
+      .then((data) => {
+        if (data && data.length > 0) {
+          const sorted = [...data].sort((a, b) =>
+            (b.timestamp || "").localeCompare(a.timestamp || "")
+          );
+          setLatestDetection(sorted[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Standard Sample Detection Data or live latest sighting
+  const sampleDetection = latestDetection || {
     species: "Tiger",
     confidence: 0.94,
     location: "Zone A",
     timestamp: "2026-09-20 10:30",
     image: "tiger.jpg"
   };
+
+  const speciesIcon = SPECIES_ICONS[sampleDetection.species] || "🐾";
 
   return (
     <div className="landing-page">
@@ -53,7 +84,7 @@ function LandingPage() {
                 <Link to="/detections" className="btn btn-wildlife-outline px-4 py-3 d-flex align-items-center gap-2">
                   <span>🐅 View Live Feeds</span>
                 </Link>
-                <Link to="/login" className="btn btn-dark border border-secondary px-4 py-3 text-secondary">
+                <Link to="/login" className="btn btn-dark border border-secondary px-4 py-3 text-light">
                   <span>Sign In</span>
                 </Link>
               </div>
@@ -101,10 +132,10 @@ function LandingPage() {
 
                     <div className="py-4">
                       <div style={{ fontSize: '4rem', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}>
-                        🐅
+                        {speciesIcon}
                       </div>
                       <div className="small text-white fw-semibold mt-2">
-                        Target Identified: Panthera tigris
+                        Target Identified: {sampleDetection.species}
                       </div>
                     </div>
 

@@ -5,10 +5,19 @@
 
 
 import { useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    closeNavbar();
+    navigate("/");
+  };
 
   const toggleNavbar = () => setIsOpen(!isOpen);
   const closeNavbar = () => setIsOpen(false);
@@ -55,7 +64,7 @@ function Navbar() {
                   `nav-link px-3 py-2 rounded ${isActive ? 'text-white fw-semibold bg-dark' : 'text-secondary'}`
                 }
                 style={({ isActive }) => ({
-                  color: isActive ? '#ffffff' : 'var(--text-muted)',
+                  color: isActive ? '#ffffff' : 'var(--text-secondary)',
                   backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
                   border: isActive ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent'
                 })}
@@ -71,7 +80,7 @@ function Navbar() {
                   `nav-link px-3 py-2 rounded ${isActive ? 'text-white fw-semibold bg-dark' : 'text-secondary'}`
                 }
                 style={({ isActive }) => ({
-                  color: isActive ? '#ffffff' : 'var(--text-muted)',
+                  color: isActive ? '#ffffff' : 'var(--text-secondary)',
                   backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
                   border: isActive ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent'
                 })}
@@ -87,7 +96,7 @@ function Navbar() {
                   `nav-link px-3 py-2 rounded ${isActive ? 'text-white fw-semibold bg-dark' : 'text-secondary'}`
                 }
                 style={({ isActive }) => ({
-                  color: isActive ? '#ffffff' : 'var(--text-muted)',
+                  color: isActive ? '#ffffff' : 'var(--text-secondary)',
                   backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
                   border: isActive ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent'
                 })}
@@ -99,22 +108,46 @@ function Navbar() {
 
           {/* Right Action Buttons */}
           <div className="d-flex align-items-center gap-2 mt-3 mt-lg-0">
-            <Link
-              to="/login"
-              onClick={closeNavbar}
-              className="btn btn-wildlife-outline px-3 py-2"
-              style={{ fontSize: '0.9rem' }}
-            >
-              Sign In
-            </Link>
-            <Link
-              to="/register"
-              onClick={closeNavbar}
-              className="btn btn-wildlife-primary px-3 py-2"
-              style={{ fontSize: '0.9rem' }}
-            >
-              Register
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <span
+                  className="badge-species py-2 px-3 d-flex align-items-center gap-2"
+                  style={{ fontSize: "0.85rem" }}
+                >
+                  <span>👤</span>
+                  <span className="text-truncate" style={{ maxWidth: "140px" }}>
+                    {user?.name || user?.email || "User"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="btn btn-wildlife-outline px-3 py-2"
+                  style={{ fontSize: "0.9rem" }}
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={closeNavbar}
+                  className="btn btn-wildlife-outline px-3 py-2"
+                  style={{ fontSize: "0.9rem" }}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={closeNavbar}
+                  className="btn btn-wildlife-primary px-3 py-2"
+                  style={{ fontSize: "0.9rem" }}
+                >
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

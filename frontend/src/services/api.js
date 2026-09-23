@@ -9,10 +9,14 @@ export async function apiRequest(endpoint, options = {}) {
     ? endpoint
     : `${API_BASE_URL}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
 
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers = {
-    "Content-Type": "application/json",
     ...options.headers,
   };
+
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   const token = localStorage.getItem("token");
   if (token && !headers["Authorization"]) {

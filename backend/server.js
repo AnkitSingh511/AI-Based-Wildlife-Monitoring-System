@@ -9,6 +9,12 @@ import authRoutes from "./routes/authRoutes.js";
 import detectionRoutes from "./routes/detectionRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 
 const app = express();
@@ -17,6 +23,9 @@ app.use(cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded images statically
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/detections", detectionRoutes);

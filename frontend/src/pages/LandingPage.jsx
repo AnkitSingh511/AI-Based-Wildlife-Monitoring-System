@@ -32,7 +32,7 @@ function LandingPage() {
           setLatestDetection(sorted[0]);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Standard Sample Detection Data or live latest sighting

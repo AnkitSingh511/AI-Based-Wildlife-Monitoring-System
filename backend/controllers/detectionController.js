@@ -1,6 +1,48 @@
 import Detection from "../models/Detection.js";
+import { runPythonDetection } from "../services/pythonDetectionService.js";
 
-// Create a new detection
+// Upload image, run Python AI/ML detection, store in MongoDB, and return result
+export const detectAndCreateDetection = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                message: "No image file provided. Please upload an image under form field 'image'."
+            });
+        }
+
+        const location = req.body.location?.trim() || "Zone A";
+        const customTimestamp = req.body.timestamp?.trim() || "";
+
+        // Run Python AI detection via spawned process
+        const detectionResult = await runPythonDetection(
+            req.file.path,
+            location,
+            customTimestamp
+        );
+
+        // Store detection in MongoDB
+        const detection = await Detection.create({
+            species: detectionResult.species,
+            confidence: detectionResult.confidence,
+            location: detectionResult.location,
+            timestamp: detectionResult.timestamp,
+            image: detectionResult.image
+        });
+
+        res.status(201).json({
+            message: "Wildlife detected and saved successfully",
+            detection
+        });
+    } catch (error) {
+        console.error("Detection error:", error);
+        res.status(400).json({
+            message: error.message || "Failed to process image detection",
+            error: error.message
+        });
+    }
+};
+
+// Create a new detection (manual CRUD)
 export const createDetection = async (req, res) => {
     try {
         const detection = await Detection.create(req.body);

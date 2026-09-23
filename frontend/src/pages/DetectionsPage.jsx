@@ -53,6 +53,71 @@ function DetectionsPage() {
     image: "",
   });
 
+  // AI Wildlife Detection states
+  const [showAiPanel, setShowAiPanel] = useState(true);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [aiLocation, setAiLocation] = useState("Zone A");
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [detectionResult, setDetectionResult] = useState(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    setAiError("");
+    setDetectionResult(null);
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        setAiError("Please select a valid image file (JPEG, PNG, or WebP).");
+        return;
+      }
+      setSelectedFile(file);
+      setFilePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleClearAi = () => {
+    setSelectedFile(null);
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+    }
+    setFilePreview(null);
+    setAiError("");
+    setDetectionResult(null);
+  };
+
+  const handleAiDetect = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      setAiError("Please choose or drag-and-drop a wildlife image first.");
+      return;
+    }
+
+    try {
+      setIsDetecting(true);
+      setAiError("");
+      setDetectionResult(null);
+
+      const data = new FormData();
+      data.append("image", selectedFile);
+      data.append("location", aiLocation);
+      data.append("timestamp", formatCurrentDateTime());
+
+      // React -> Node/Express -> Python PyTorch -> Node/Express -> MongoDB -> React
+      const newRecord = await detectionService.uploadAndDetect(data);
+
+      setDetectionResult(newRecord);
+      setDetections((prev) => [newRecord, ...prev]);
+      const confFormatted = Math.round((newRecord.confidence || 0) * 100);
+      setSuccessMsg(`Wildlife Detected: ${newRecord.species} (${confFormatted}% confidence)! Successfully stored in MongoDB.`);
+      setTimeout(() => setSuccessMsg(""), 6000);
+    } catch (err) {
+      setAiError(err.message || "Detection failed or no animal identified.");
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
   const loadDetections = async () => {
     try {
       setLoading(true);
@@ -211,13 +276,20 @@ function DetectionsPage() {
         <div className="d-flex align-items-center gap-2">
           <button
             type="button"
+            onClick={() => setShowAiPanel(!showAiPanel)}
+            className="btn btn-wildlife-primary px-3 py-2 d-flex align-items-center gap-2 fw-semibold"
+          >
+            <span>{showAiPanel ? "✕ Hide AI Detector" : "🤖 AI Image Detector"}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setFormData((prev) => ({ ...prev, timestamp: formatCurrentDateTime() }));
               setShowAddForm(!showAddForm);
             }}
-            className="btn btn-wildlife-primary px-3 py-2 d-flex align-items-center gap-2 fw-semibold"
+            className="btn btn-wildlife-outline px-3 py-2 d-flex align-items-center gap-2"
           >
-            <span>{showAddForm ? "✕ Close Form" : "+ Log Sighting"}</span>
+            <span>{showAddForm ? "✕ Close Manual" : "+ Manual Log"}</span>
           </button>
           <button
             type="button"
@@ -252,6 +324,271 @@ function DetectionsPage() {
           >
             Retry
           </button>
+        </div>
+      )}
+
+      {/* AI Wildlife Image Detection & Sighting Panel */}
+      {showAiPanel && (
+        <div className="wildlife-card p-4 mb-4" style={{
+          border: '1px solid rgba(16, 185, 129, 0.4)',
+          background: 'linear-gradient(135deg, rgba(7, 17, 13, 0.95) 0%, rgba(19, 34, 28, 0.85) 100%)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+        }}>
+          <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between pb-3 mb-3 border-bottom border-secondary border-opacity-25 gap-2">
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <span style={{ fontSize: '1.4rem' }}>🐍</span>
+                <h4 className="text-white fw-bold mb-0">PyTorch Wildlife Neural Detection</h4>
+                <span className="badge-species py-1 px-2" style={{ fontSize: '0.72rem' }}>
+                  <span className="status-pulse me-1"></span> Live AI
+                </span>
+              </div>
+              <p className="text-secondary small mb-0 mt-1">
+                Upload a camera trap capture. The Node backend spawns the PyTorch detection engine, verifies species labels, and records the sighting to MongoDB.
+              </p>
+            </div>
+            <span className="small text-secondary">
+              Flow: React → Node.js → Python PyTorch → MongoDB
+            </span>
+          </div>
+
+          <div className="row g-4 align-items-stretch">
+            {/* Left Column: Upload & Configuration Form */}
+            <div className="col-12 col-lg-6 d-flex flex-column justify-content-between">
+              <form onSubmit={handleAiDetect}>
+                <div className="mb-3">
+                  <label className="small text-secondary fw-semibold mb-2 d-block">
+                    Select Wildlife Camera Image (JPEG, PNG, WebP) *
+                  </label>
+                  <div
+                    className="p-3 rounded text-center position-relative"
+                    style={{
+                      border: "2px dashed rgba(16, 185, 129, 0.4)",
+                      backgroundColor: "rgba(0, 0, 0, 0.2)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <input
+                      type="file"
+                      id="wildlife-file-input"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileChange}
+                      className="position-absolute top-0 start-0 w-100 h-100 opacity-0"
+                      style={{ cursor: "pointer" }}
+                      disabled={isDetecting}
+                    />
+                    {filePreview ? (
+                      <div className="d-flex align-items-center justify-content-center gap-3">
+                        <img
+                          src={filePreview}
+                          alt="Selected preview"
+                          className="rounded"
+                          style={{ width: "70px", height: "70px", objectFit: "cover" }}
+                        />
+                        <div className="text-start">
+                          <div className="text-white fw-semibold small text-truncate" style={{ maxWidth: "220px" }}>
+                            {selectedFile?.name}
+                          </div>
+                          <div className="small text-secondary">
+                            {(selectedFile?.size / 1024).toFixed(1)} KB • Ready for detection
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClearAi();
+                            }}
+                            className="btn btn-sm btn-link text-danger p-0 mt-1"
+                            style={{ textDecoration: "none", fontSize: "0.8rem" }}
+                          >
+                            ✕ Remove / Choose other
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-3">
+                        <div style={{ fontSize: "2.2rem", marginBottom: "0.5rem" }}>📷</div>
+                        <div className="text-white fw-semibold small">
+                          Click to browse or drag & drop wildlife image
+                        </div>
+                        <div className="text-secondary small mt-1">
+                          Supports camera trap stills and field photography
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="row g-3 mb-3">
+                  <div className="col-12 col-md-6">
+                    <label className="small text-secondary fw-semibold mb-1 d-block">
+                      Sanctuary Zone / Location *
+                    </label>
+                    <select
+                      className="wildlife-select"
+                      value={aiLocation}
+                      onChange={(e) => setAiLocation(e.target.value)}
+                      disabled={isDetecting}
+                    >
+                      <option value="Zone A">📍 Zone A (Core Habitat)</option>
+                      <option value="Zone B">📍 Zone B (Buffer Forest)</option>
+                      <option value="Zone C">📍 Zone C (Water Reservoir)</option>
+                      <option value="North Ridge">📍 North Ridge Corridor</option>
+                      <option value="East Grassland">📍 East Grassland</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <label className="small text-secondary fw-semibold mb-1 d-block">
+                      Telemetry Timestamp
+                    </label>
+                    <input
+                      type="text"
+                      className="wildlife-input"
+                      value={formatCurrentDateTime()}
+                      disabled
+                      readOnly
+                      title="Timestamp recorded automatically at inference time"
+                    />
+                  </div>
+                </div>
+
+                {aiError && (
+                  <div className="wildlife-alert-danger mb-3 d-flex align-items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{aiError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isDetecting || !selectedFile}
+                  className="btn btn-wildlife-primary w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow"
+                >
+                  {isDetecting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm" role="status"></span>
+                      <span>Detecting Wildlife with PyTorch...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>⚡ Run PyTorch AI Detection</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Right Column: Real-time Detection Result Card */}
+            <div className="col-12 col-lg-6">
+              {detectionResult ? (
+                <div
+                  className="p-3 rounded h-100 d-flex flex-column justify-content-between"
+                  style={{
+                    backgroundColor: "rgba(16, 185, 129, 0.08)",
+                    border: "1px solid rgba(16, 185, 129, 0.4)",
+                  }}
+                >
+                  <div>
+                    {/* Header */}
+                    <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+                      <span className="badge-species d-flex align-items-center gap-1">
+                        <span>{getSpeciesIcon(detectionResult.species)}</span>
+                        <span>{detectionResult.species}</span>
+                      </span>
+                      <span className="badge-confidence-high">
+                        {Math.round((detectionResult.confidence || 0) * 100)}% Confidence
+                      </span>
+                    </div>
+
+                    {/* Image Display */}
+                    <div className="text-center mb-3">
+                      <img
+                        src={`/uploads/${detectionResult.image}`}
+                        alt={detectionResult.species}
+                        className="img-fluid rounded border border-success border-opacity-50 shadow-sm"
+                        style={{ maxHeight: "200px", width: "100%", objectFit: "cover" }}
+                        onError={(e) => {
+                          if (filePreview) e.target.src = filePreview;
+                        }}
+                      />
+                    </div>
+
+                    {/* Details Table */}
+                    <div className="small text-secondary pt-2 border-top border-secondary border-opacity-25">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-semibold">Detected Species:</span>
+                        <span className="text-white fw-bold">
+                          {getSpeciesIcon(detectionResult.species)} {detectionResult.species}
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-semibold">Confidence Rating:</span>
+                        <span className="text-success fw-bold">
+                          {(detectionResult.confidence * 100).toFixed(1)}% ({detectionResult.confidence})
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-semibold">Sanctuary Zone:</span>
+                        <span className="badge-zone">📍 {detectionResult.location}</span>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-semibold">Timestamp:</span>
+                        <span className="text-light">🕒 {detectionResult.timestamp}</span>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="fw-semibold">Saved Image:</span>
+                        <code className="text-secondary small text-truncate" style={{ maxWidth: "200px" }}>
+                          {detectionResult.image}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="d-flex justify-content-between align-items-center pt-3 mt-2 border-top border-secondary border-opacity-25">
+                    <span className="small text-success d-flex align-items-center gap-1">
+                      <span>✅</span>
+                      <span>Saved in MongoDB (ID: {detectionResult._id?.slice(-6) || "Done"})</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleClearAi}
+                      className="btn btn-sm btn-outline-light py-1 px-2"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      New Scan
+                    </button>
+                  </div>
+                </div>
+              ) : isDetecting ? (
+                <div className="h-100 rounded p-4 d-flex flex-column align-items-center justify-content-center text-center" style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.2)",
+                  border: "1px dashed rgba(16, 185, 129, 0.3)"
+                }}>
+                  <div className="spinner-border text-success mb-3" style={{ width: "3rem", height: "3rem" }} role="status"></div>
+                  <h5 className="text-white fw-bold mb-2">Analyzing Image with PyTorch</h5>
+                  <p className="text-secondary small mb-2" style={{ maxWidth: "340px" }}>
+                    Node.js backend has spawned the Python detection service. Evaluating YOLO tensor forward pass...
+                  </p>
+                  <div className="badge-species py-1 px-3">
+                    <span className="status-pulse me-1"></span> Processing Bounding Boxes
+                  </div>
+                </div>
+              ) : (
+                <div className="h-100 rounded p-4 d-flex flex-column align-items-center justify-content-center text-center" style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.15)",
+                  border: "1px dashed var(--border-color)"
+                }}>
+                  <div style={{ fontSize: "2.8rem", marginBottom: "0.8rem" }}>🎯</div>
+                  <h5 className="text-white fw-semibold mb-1">Awaiting Image Upload</h5>
+                  <p className="text-secondary small mb-0" style={{ maxWidth: "340px" }}>
+                    Select an image file on the left and click &quot;Run PyTorch AI Detection&quot;. The actual species, confidence, zone, and timestamp will be displayed here.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -498,13 +835,28 @@ function DetectionsPage() {
                       </span>
                     </div>
 
-                    {/* Animal Icon Display */}
-                    <div className="text-center py-3">
-                      <div style={{ fontSize: "3.2rem", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))" }}>
-                        {icon}
-                      </div>
-                      <div className="small text-white fw-semibold mt-1">
-                        {detection.species}
+                    {/* Animal Image / Icon Display */}
+                    <div className="text-center py-2">
+                      {detection.image && (
+                        <img
+                          src={`/uploads/${detection.image}`}
+                          alt={detection.species}
+                          className="img-fluid rounded mb-2 border border-secondary border-opacity-25"
+                          style={{ maxHeight: "150px", width: "100%", objectFit: "cover" }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            const fallback = e.currentTarget.nextElementSibling;
+                            if (fallback) fallback.style.display = "block";
+                          }}
+                        />
+                      )}
+                      <div style={{ display: detection.image ? "none" : "block" }}>
+                        <div style={{ fontSize: "3.2rem", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))" }}>
+                          {icon}
+                        </div>
+                        <div className="small text-white fw-semibold mt-1">
+                          {detection.species}
+                        </div>
                       </div>
                     </div>
 

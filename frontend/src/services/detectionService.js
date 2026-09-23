@@ -5,6 +5,18 @@ import { apiRequest } from "./api";
  */
 export const detectionService = {
   /**
+   * Upload an image file for AI/ML wildlife detection and automatic database record creation
+   * @param {FormData} formData
+   */
+  async uploadAndDetect(formData) {
+    const data = await apiRequest("/detections/upload-detect", {
+      method: "POST",
+      body: formData,
+    });
+    return data.detection || data;
+  },
+
+  /**
    * Fetch all wildlife detection records
    */
   async getAllDetections() {

@@ -1,0 +1,34 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+
+# Environment and sensitive credentials
+.env
+.env.*
+*.env
+
+# Python compilation and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Build artifacts & uploaded media
+dist/
+dist-ssr/
+backend/uploads/
+uploads/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -7,30 +7,31 @@ import {
     getAllDetections,
     getDetectionById,
     updateDetection,
-    deleteDetection
+    deleteDetection,
+    getWildlifeAlerts,
+    getTrackingHistory
 } from "../controllers/detectionController.js";
-import { upload, videoUpload } from "../middleware/uploadMiddleware.js";
-
-// import authMiddleware from "../middleware/authMiddleware.js";
+import { uploadImageFlexible, uploadVideoFlexible } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-// AI Detection & Image Upload endpoints (existing, unchanged)
-router.post("/upload-detect", upload.single("image"), detectAndCreateDetection);
-router.post("/detect", upload.single("image"), detectAndCreateDetection);
+// AI Wildlife Alerts & Tracking endpoints (from python_detect_tracker)
+router.get("/alerts", getWildlifeAlerts);
+router.get("/tracking", getTrackingHistory);
 
-// AI Wildlife Video Detection endpoints
-router.post("/upload-detect-video", upload.single("video"), detectAndCreateVideoDetection);
-router.post("/detect-video", upload.single("video"), detectAndCreateVideoDetection);
+// AI Detection & Image Upload endpoints (both /upload-detect and /detect for robust routing)
+router.post("/upload-detect", uploadImageFlexible, detectAndCreateDetection);
+router.post("/detect", uploadImageFlexible, detectAndCreateDetection);
 
+// AI Wildlife Video Detection endpoints (both /upload-detect-video and /detect-video)
+router.post("/upload-detect-video", uploadVideoFlexible, detectAndCreateVideoDetection);
+router.post("/detect-video", uploadVideoFlexible, detectAndCreateVideoDetection);
+
+// Standard CRUD endpoints
 router.post("/", createDetection);
-
-router.get("/",  getAllDetections);
-
-router.get("/:id",  getDetectionById);
-
-router.put("/:id",  updateDetection);
-
-router.delete("/:id",  deleteDetection);
+router.get("/", getAllDetections);
+router.get("/:id", getDetectionById);
+router.put("/:id", updateDetection);
+router.delete("/:id", deleteDetection);
 
 export default router;

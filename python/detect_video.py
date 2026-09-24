@@ -23,31 +23,49 @@ from PIL import Image
 import numpy as np
 from ultralytics import YOLO
 
-# Reuse wildlife class mapping
-WILDLIFE_CLASSES = {
-    "bird": "Bird",
-    "cat": "Tiger",
-    "dog": "Jackal",
-    "horse": "Deer",
-    "sheep": "Deer",
-    "cow": "Wild Boar",
-    "elephant": "Elephant",
-    "bear": "Bear",
-    "zebra": "Zebra",
-    "giraffe": "Giraffe",
-    "tiger": "Tiger",
-    "leopard": "Leopard",
-    "deer": "Deer",
-    "peacock": "Peacock",
-    "wild boar": "Wild Boar",
-    "jackal": "Jackal",
-    "cheetah": "Leopard",
-    "lion": "Tiger",
-    "fox": "Jackal",
-    "wolf": "Jackal",
-    "monkey": "Monkey",
-    "langur": "Monkey",
+# Recognized animal and wildlife classes (COCO animal classes + sanctuary wildlife)
+KNOWN_ANIMAL_CLASSES = {
+    # COCO dataset animal classes (mapped directly to their actual names - NO fake mappings)
+    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+    # Wildlife sanctuary target species supported by custom wildlife models
+    "tiger", "leopard", "cheetah", "lion", "jaguar", "panther", "lynx",
+    "deer", "antelope", "gazelle", "elk", "moose", "bison", "buffalo",
+    "rabbit", "hare",
+    "wild boar", "boar", "pig",
+    "jackal", "fox", "wolf", "hyena", "coyote",
+    "monkey", "langur", "baboon", "chimpanzee", "gorilla",
+    "peacock", "eagle", "hawk", "owl", "falcon", "vulture",
+    "panda", "kangaroo", "koala", "wombat",
+    "rhino", "rhinoceros", "hippo", "hippopotamus",
+    "crocodile", "alligator", "snake", "turtle", "tortoise",
+    "otter", "badger", "raccoon", "squirrel", "beaver", "porcupine", "hedgehog"
 }
+
+# Blacklist of non-animal classes that might contain animal substrings (e.g. teddy bear, hot dog)
+NON_ANIMAL_BLACKLIST = {
+    "teddy bear", "hot dog"
+}
+
+
+def resolve_species_label(raw_name: str, is_custom_model: bool = False):
+    """
+    Resolves the true species name from the YOLO model class names.
+    - Uses the model's actual class name formatted in title case.
+    - Strictly avoids fake mappings (NO cat->Tiger, dog->Jackal, horse->Deer, cow->Wild Boar).
+    - Filters out non-animal objects (e.g. 'teddy bear', 'person', 'car').
+    """
+    clean_name = raw_name.lower().strip()
+
+    if clean_name in NON_ANIMAL_BLACKLIST:
+        return None
+
+    if clean_name in KNOWN_ANIMAL_CLASSES:
+        return clean_name.title()
+
+    if is_custom_model and not clean_name.startswith("class_"):
+        return clean_name.title()
+
+    return None
 
 
 def format_current_timestamp():
@@ -101,14 +119,8 @@ def detect_in_frame(model: YOLO, is_custom_model: bool, rgb_frame: np.ndarray):
         class_id = int(cls_arr[i])
         raw_name = class_names.get(class_id, f"class_{class_id}").lower().strip()
 
-        species_label = None
-        for key, val in WILDLIFE_CLASSES.items():
-            if key == raw_name or key in raw_name:
-                species_label = val
-                break
-
-        if not species_label and is_custom_model and "class_" not in raw_name:
-            species_label = raw_name.capitalize()
+        # Resolve true animal / wildlife species label directly from model class names
+        species_label = resolve_species_label(raw_name, is_custom_model)
 
         if species_label:
             detections.append({

@@ -45,7 +45,7 @@ const mediaFilter = (req, file, cb) => {
     "video/x-msvideo",
     "video/quicktime",
     "video/x-matroska",
-    "application/octet-stream" // Some browsers send binary stream for video
+    "application/octet-stream"
   ];
 
   const mime = (file.mimetype || "").toLowerCase();
@@ -84,7 +84,7 @@ export const upload = multer({
   storage,
   fileFilter: mediaFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit for media
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
 });
 
@@ -95,5 +95,37 @@ export const videoUpload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB limit for video
   },
 });
+
+// Flexible middleware that accepts either 'image' or 'file' form field
+export const uploadImageFlexible = (req, res, next) => {
+  const uploadHandler = upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "file", maxCount: 1 }
+  ]);
+
+  uploadHandler(req, res, (err) => {
+    if (err) return next(err);
+    if (req.files) {
+      req.file = req.files.image?.[0] || req.files.file?.[0] || null;
+    }
+    next();
+  });
+};
+
+// Flexible middleware that accepts either 'video' or 'file' form field
+export const uploadVideoFlexible = (req, res, next) => {
+  const uploadHandler = videoUpload.fields([
+    { name: "video", maxCount: 1 },
+    { name: "file", maxCount: 1 }
+  ]);
+
+  uploadHandler(req, res, (err) => {
+    if (err) return next(err);
+    if (req.files) {
+      req.file = req.files.video?.[0] || req.files.file?.[0] || null;
+    }
+    next();
+  });
+};
 
 export default upload;

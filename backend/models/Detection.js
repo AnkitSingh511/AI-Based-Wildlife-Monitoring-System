@@ -54,7 +54,11 @@ const detectionSchema = new mongoose.Schema({
         type: Array,
         default: []
     }
-}, { timestamps: true });
+}, { 
+    timestamps: true,
+    // Disable buffering on model level: operations fail immediately if not connected rather than timing out after 10000ms
+    bufferCommands: false 
+});
 
 const Detection = mongoose.model("Detection", detectionSchema);
 

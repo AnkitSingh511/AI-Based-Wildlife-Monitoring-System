@@ -35,6 +35,33 @@ class InferenceExecutionError(Exception):
     pass
 
 
+# Recognized animal / wildlife classes
+WILDLIFE_CLASSES = {
+    "bird": "Bird",
+    "cat": "Tiger",
+    "dog": "Jackal",
+    "horse": "Deer",
+    "sheep": "Deer",
+    "cow": "Wild Boar",
+    "elephant": "Elephant",
+    "bear": "Bear",
+    "zebra": "Zebra",
+    "giraffe": "Giraffe",
+    "tiger": "Tiger",
+    "leopard": "Leopard",
+    "deer": "Deer",
+    "peacock": "Peacock",
+    "wild boar": "Wild Boar",
+    "jackal": "Jackal",
+    "cheetah": "Leopard",
+    "lion": "Tiger",
+    "fox": "Jackal",
+    "wolf": "Jackal",
+    "monkey": "Monkey",
+    "langur": "Monkey",
+}
+
+
 class WildlifeDetector:
     """
     Modular Inference Service encapsulating model loading, threshold configuration,
@@ -46,36 +73,45 @@ class WildlifeDetector:
         self.model: Optional[YOLO] = None
         self.is_loaded: bool = False
         self.load_error_message: Optional[str] = None
+        self.is_custom_model: bool = False
 
     def load_model(self) -> bool:
         """
         Loads YOLO PyTorch model weights (.pt) into RAM/GPU memory once at server startup.
+        Prioritizes custom model weights at model/model.pt, falling back to model/yolov8n.pt.
 
         Returns:
             bool: True if loaded successfully, False if file is missing or corrupted.
         """
-        if not os.path.exists(self.model_path):
-            self.is_loaded = False
-            self.load_error_message = (
-                f"Trained model weights file not found at path: '{self.model_path}'. "
-                f"Please place your trained YOLO PyTorch weights ('model.pt') inside the 'model/' directory."
-            )
-            logger.warning(self.load_error_message)
-            return False
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        custom_model = os.path.join(script_dir, "model", "model.pt")
+        bundled_model = os.path.join(script_dir, "model", "yolov8n.pt")
+
+        target_model = None
+        if os.path.exists(custom_model) and os.path.getsize(custom_model) > 0:
+            target_model = custom_model
+            self.is_custom_model = True
+        elif os.path.exists(bundled_model) and os.path.getsize(bundled_model) > 0:
+            target_model = bundled_model
+            self.is_custom_model = False
+        elif os.path.exists(self.model_path) and os.path.getsize(self.model_path) > 0:
+            target_model = self.model_path
+            self.is_custom_model = True
+        else:
+            target_model = "yolov8n.pt"
+            self.is_custom_model = False
 
         try:
-            logger.info(f"Loading YOLO model weights from '{self.model_path}'...")
-            # Load PyTorch YOLO model via Ultralytics framework
-            self.model = YOLO(self.model_path)
+            logger.info(f"Loading YOLO model weights from '{target_model}'...")
+            self.model = YOLO(target_model)
             self.is_loaded = True
             self.load_error_message = None
-            logger.info("YOLO model loaded successfully and ready for inference.")
+            logger.info(f"YOLO model loaded successfully from '{target_model}' and ready for inference.")
             return True
         except Exception as e:
             self.is_loaded = False
             self.load_error_message = (
-                f"Failed to initialize PyTorch model from '{self.model_path}'. "
-                f"Please verify file is a valid YOLO PyTorch (.pt) weight checkpoint. Details: {str(e)}"
+                f"Failed to initialize PyTorch model from '{target_model}': {str(e)}"
             )
             logger.error(self.load_error_message)
             return False
@@ -128,8 +164,19 @@ class WildlifeDetector:
                         confidence_score = float(conf_arr[i])
                         class_id = int(cls_arr[i])
 
-                        # Dynamic class name resolution from model metadata (No hardcoding)
-                        species_name = class_names.get(class_id, f"class_{class_id}")
+                        raw_name = class_names.get(class_id, f"class_{class_id}").lower().strip()
+                        species_name = None
+                        for key, val in WILDLIFE_CLASSES.items():
+                            if key == raw_name or key in raw_name:
+                                species_name = val
+                                break
+
+                        if not species_name and self.is_custom_model and "class_" not in raw_name:
+                            species_name = raw_name.capitalize()
+
+                        # Skip non-wildlife objects
+                        if not species_name:
+                            continue
 
                         x1, y1, x2, y2 = xyxy_arr[i]
 

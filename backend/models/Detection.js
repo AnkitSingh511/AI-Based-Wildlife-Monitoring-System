@@ -30,8 +30,31 @@ const detectionSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
+    },
+
+    mediaType: {
+        type: String,
+        enum: ["image", "video"],
+        default: "image"
+    },
+
+    video: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+
+    frameTimestamp: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+
+    videoDetections: {
+        type: Array,
+        default: []
     }
-});
+}, { timestamps: true });
 
 const Detection = mongoose.model("Detection", detectionSchema);
 

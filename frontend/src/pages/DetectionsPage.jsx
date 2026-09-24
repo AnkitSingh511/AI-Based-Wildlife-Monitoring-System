@@ -55,6 +55,7 @@ function DetectionsPage() {
 
   // AI Wildlife Detection states
   const [showAiPanel, setShowAiPanel] = useState(true);
+  const [mediaMode, setMediaMode] = useState("image"); // "image" | "video"
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [aiLocation, setAiLocation] = useState("Zone A");
@@ -66,14 +67,27 @@ function DetectionsPage() {
     const file = e.target.files?.[0];
     setAiError("");
     setDetectionResult(null);
-    if (file) {
-      if (!file.type.startsWith("image/")) {
+    if (!file) return;
+
+    const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|avi|mov|mkv)$/i.test(file.name);
+    const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name);
+
+    if (mediaMode === "video" && !isVideo) {
+      setAiError("Please select a valid video file (MP4, WebM, AVI, MOV, or MKV).");
+      return;
+    }
+    if (mediaMode === "image" && !isImage) {
+      if (isVideo) {
+        // Auto-switch to video mode if user dropped a video
+        setMediaMode("video");
+      } else {
         setAiError("Please select a valid image file (JPEG, PNG, or WebP).");
         return;
       }
-      setSelectedFile(file);
-      setFilePreview(URL.createObjectURL(file));
     }
+
+    setSelectedFile(file);
+    setFilePreview(URL.createObjectURL(file));
   };
 
   const handleClearAi = () => {
@@ -89,7 +103,7 @@ function DetectionsPage() {
   const handleAiDetect = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
-      setAiError("Please choose or drag-and-drop a wildlife image first.");
+      setAiError(`Please choose or drag-and-drop a wildlife ${mediaMode === "video" ? "video" : "image"} first.`);
       return;
     }
 
@@ -99,20 +113,28 @@ function DetectionsPage() {
       setDetectionResult(null);
 
       const data = new FormData();
-      data.append("image", selectedFile);
       data.append("location", aiLocation);
       data.append("timestamp", formatCurrentDateTime());
 
-      // React -> Node/Express -> Python PyTorch -> Node/Express -> MongoDB -> React
-      const newRecord = await detectionService.uploadAndDetect(data);
+      let newRecord;
+      if (mediaMode === "video") {
+        data.append("video", selectedFile);
+        newRecord = await detectionService.uploadAndDetectVideo(data);
+      } else {
+        data.append("image", selectedFile);
+        newRecord = await detectionService.uploadAndDetect(data);
+      }
 
       setDetectionResult(newRecord);
       setDetections((prev) => [newRecord, ...prev]);
       const confFormatted = Math.round((newRecord.confidence || 0) * 100);
-      setSuccessMsg(`Wildlife Detected: ${newRecord.species} (${confFormatted}% confidence)! Successfully stored in MongoDB.`);
+      const timeInfo = newRecord.frameTimestamp ? ` at ${newRecord.frameTimestamp}` : "";
+      setSuccessMsg(
+        `Wildlife Detected: ${newRecord.species} (${confFormatted}% confidence)${timeInfo}! Successfully stored in MongoDB.`
+      );
       setTimeout(() => setSuccessMsg(""), 6000);
     } catch (err) {
-      setAiError(err.message || "Detection failed or no animal identified.");
+      setAiError(err.message || `${mediaMode === "video" ? "Video" : "Image"} detection failed or no animal identified.`);
     } finally {
       setIsDetecting(false);
     }
@@ -337,19 +359,52 @@ function DetectionsPage() {
           <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between pb-3 mb-3 border-bottom border-secondary border-opacity-25 gap-2">
             <div>
               <div className="d-flex align-items-center gap-2">
-                <span style={{ fontSize: '1.4rem' }}>🐍</span>
-                <h4 className="text-white fw-bold mb-0">PyTorch Wildlife Neural Detection</h4>
+                <span style={{ fontSize: '1.4rem' }}>{mediaMode === "video" ? "📹" : "🐍"}</span>
+                <h4 className="text-white fw-bold mb-0">
+                  {mediaMode === "video" ? "PyTorch Wildlife Video Detection" : "PyTorch Wildlife Neural Detection"}
+                </h4>
                 <span className="badge-species py-1 px-2" style={{ fontSize: '0.72rem' }}>
                   <span className="status-pulse me-1"></span> Live AI
                 </span>
               </div>
               <p className="text-secondary small mb-0 mt-1">
-                Upload a camera trap capture. The Node backend spawns the PyTorch detection engine, verifies species labels, and records the sighting to MongoDB.
+                {mediaMode === "video"
+                  ? "Upload a wildlife video. The Python AI service samples frames, detects wildlife species, deduplicates sightings, and saves the sightings."
+                  : "Upload a camera trap capture. The Node backend spawns the PyTorch detection engine, verifies species labels, and records the sighting to MongoDB."}
               </p>
             </div>
             <span className="small text-secondary">
               Flow: React → Node.js → Python PyTorch → MongoDB
             </span>
+          </div>
+
+          {/* Mode Switcher Tabs */}
+          <div className="d-flex align-items-center gap-2 mb-3">
+            <span className="small text-secondary fw-semibold">Media Type:</span>
+            <div className="btn-group" role="group">
+              <button
+                type="button"
+                className={`btn btn-sm ${mediaMode === "image" ? "btn-wildlife-primary fw-bold" : "btn-dark border border-secondary text-secondary"}`}
+                onClick={() => {
+                  setMediaMode("image");
+                  handleClearAi();
+                }}
+                disabled={isDetecting}
+              >
+                📷 Image Detection
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${mediaMode === "video" ? "btn-wildlife-primary fw-bold" : "btn-dark border border-secondary text-secondary"}`}
+                onClick={() => {
+                  setMediaMode("video");
+                  handleClearAi();
+                }}
+                disabled={isDetecting}
+              >
+                📹 Video Detection
+              </button>
+            </div>
           </div>
 
           <div className="row g-4 align-items-stretch">
@@ -358,7 +413,9 @@ function DetectionsPage() {
               <form onSubmit={handleAiDetect}>
                 <div className="mb-3">
                   <label className="small text-secondary fw-semibold mb-2 d-block">
-                    Select Wildlife Camera Image (JPEG, PNG, WebP) *
+                    {mediaMode === "video"
+                      ? "Select Wildlife Camera Video (MP4, WebM, AVI, MOV, MKV up to 100MB) *"
+                      : "Select Wildlife Camera Image (JPEG, PNG, WebP) *"}
                   </label>
                   <div
                     className="p-3 rounded text-center position-relative"
@@ -372,7 +429,11 @@ function DetectionsPage() {
                     <input
                       type="file"
                       id="wildlife-file-input"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept={
+                        mediaMode === "video"
+                          ? "video/mp4,video/webm,video/x-msvideo,video/quicktime,video/x-matroska,.mp4,.webm,.avi,.mov,.mkv"
+                          : "image/jpeg,image/png,image/webp"
+                      }
                       onChange={handleFileChange}
                       className="position-absolute top-0 start-0 w-100 h-100 opacity-0"
                       style={{ cursor: "pointer" }}
@@ -380,18 +441,29 @@ function DetectionsPage() {
                     />
                     {filePreview ? (
                       <div className="d-flex align-items-center justify-content-center gap-3">
-                        <img
-                          src={filePreview}
-                          alt="Selected preview"
-                          className="rounded"
-                          style={{ width: "70px", height: "70px", objectFit: "cover" }}
-                        />
+                        {mediaMode === "video" ? (
+                          <video
+                            src={filePreview}
+                            className="rounded"
+                            style={{ width: "90px", height: "70px", objectFit: "cover" }}
+                            muted
+                          />
+                        ) : (
+                          <img
+                            src={filePreview}
+                            alt="Selected preview"
+                            className="rounded"
+                            style={{ width: "70px", height: "70px", objectFit: "cover" }}
+                          />
+                        )}
                         <div className="text-start">
                           <div className="text-white fw-semibold small text-truncate" style={{ maxWidth: "220px" }}>
                             {selectedFile?.name}
                           </div>
                           <div className="small text-secondary">
-                            {(selectedFile?.size / 1024).toFixed(1)} KB • Ready for detection
+                            {selectedFile?.size > 1024 * 1024
+                              ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
+                              : `${(selectedFile?.size / 1024).toFixed(1)} KB`} • Ready for detection
                           </div>
                           <button
                             type="button"
@@ -408,12 +480,18 @@ function DetectionsPage() {
                       </div>
                     ) : (
                       <div className="py-3">
-                        <div style={{ fontSize: "2.2rem", marginBottom: "0.5rem" }}>📷</div>
+                        <div style={{ fontSize: "2.2rem", marginBottom: "0.5rem" }}>
+                          {mediaMode === "video" ? "📹" : "📷"}
+                        </div>
                         <div className="text-white fw-semibold small">
-                          Click to browse or drag & drop wildlife image
+                          {mediaMode === "video"
+                            ? "Click to browse or drag & drop wildlife video"
+                            : "Click to browse or drag & drop wildlife image"}
                         </div>
                         <div className="text-secondary small mt-1">
-                          Supports camera trap stills and field photography
+                          {mediaMode === "video"
+                            ? "Supports trap camera clips, motion footage, and field recordings"
+                            : "Supports camera trap stills and field photography"}
                         </div>
                       </div>
                     )}
@@ -469,11 +547,19 @@ function DetectionsPage() {
                   {isDetecting ? (
                     <>
                       <span className="spinner-border spinner-border-sm" role="status"></span>
-                      <span>Detecting Wildlife with PyTorch...</span>
+                      <span>
+                        {mediaMode === "video"
+                          ? "Analyzing Video Frames with PyTorch YOLO..."
+                          : "Detecting Wildlife with PyTorch..."}
+                      </span>
                     </>
                   ) : (
                     <>
-                      <span>⚡ Run PyTorch AI Detection</span>
+                      <span>
+                        {mediaMode === "video"
+                          ? "⚡ Run PyTorch Video AI Detection"
+                          : "⚡ Run PyTorch AI Detection"}
+                      </span>
                     </>
                   )}
                 </button>
@@ -493,16 +579,23 @@ function DetectionsPage() {
                   <div>
                     {/* Header */}
                     <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary border-opacity-25">
-                      <span className="badge-species d-flex align-items-center gap-1">
-                        <span>{getSpeciesIcon(detectionResult.species)}</span>
-                        <span>{detectionResult.species}</span>
-                      </span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge-species d-flex align-items-center gap-1">
+                          <span>{getSpeciesIcon(detectionResult.species)}</span>
+                          <span>{detectionResult.species}</span>
+                        </span>
+                        {detectionResult.mediaType === "video" && (
+                          <span className="badge bg-primary bg-opacity-25 text-info" style={{ fontSize: "0.72rem" }}>
+                            📹 Video
+                          </span>
+                        )}
+                      </div>
                       <span className="badge-confidence-high">
                         {Math.round((detectionResult.confidence || 0) * 100)}% Confidence
                       </span>
                     </div>
 
-                    {/* Image Display */}
+                    {/* Image / Thumbnail Display */}
                     <div className="text-center mb-3">
                       <img
                         src={`/uploads/${detectionResult.image}`}
@@ -510,9 +603,14 @@ function DetectionsPage() {
                         className="img-fluid rounded border border-success border-opacity-50 shadow-sm"
                         style={{ maxHeight: "200px", width: "100%", objectFit: "cover" }}
                         onError={(e) => {
-                          if (filePreview) e.target.src = filePreview;
+                          if (filePreview && mediaMode === "image") e.target.src = filePreview;
                         }}
                       />
+                      {detectionResult.frameTimestamp && (
+                        <div className="small text-secondary mt-1">
+                          Snapshot captured at video frame: <span className="text-warning fw-semibold">{detectionResult.frameTimestamp}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Details Table */}
@@ -537,12 +635,49 @@ function DetectionsPage() {
                         <span className="fw-semibold">Timestamp:</span>
                         <span className="text-light">🕒 {detectionResult.timestamp}</span>
                       </div>
+
+                      {detectionResult.frameTimestamp && (
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="fw-semibold">Frame Timestamp:</span>
+                          <span className="text-warning fw-bold">⏱️ {detectionResult.frameTimestamp}</span>
+                        </div>
+                      )}
+
+                      {detectionResult.video && (
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="fw-semibold">Source Video:</span>
+                          <code className="text-secondary small text-truncate" style={{ maxWidth: "200px" }}>
+                            {detectionResult.video}
+                          </code>
+                        </div>
+                      )}
+
                       <div className="d-flex justify-content-between align-items-center">
-                        <span className="fw-semibold">Saved Image:</span>
+                        <span className="fw-semibold">Snapshot Saved:</span>
                         <code className="text-secondary small text-truncate" style={{ maxWidth: "200px" }}>
                           {detectionResult.image}
                         </code>
                       </div>
+
+                      {/* Video Sightings Breakdown */}
+                      {detectionResult.videoDetections && detectionResult.videoDetections.length > 1 && (
+                        <div className="mt-2 pt-2 border-top border-secondary border-opacity-25">
+                          <span className="small text-secondary fw-semibold d-block mb-1">
+                            All Detections in Video ({detectionResult.videoDetections.length}):
+                          </span>
+                          <div className="d-flex flex-wrap gap-1" style={{ maxHeight: "80px", overflowY: "auto" }}>
+                            {detectionResult.videoDetections.map((vd, i) => (
+                              <span
+                                key={i}
+                                className="badge bg-dark border border-secondary text-light p-1"
+                                style={{ fontSize: "0.72rem" }}
+                              >
+                                {getSpeciesIcon(vd.species)} {vd.species} ({Math.round(vd.confidence * 100)}%) @ {vd.frameTimestamp}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -567,12 +702,16 @@ function DetectionsPage() {
                   border: "1px dashed rgba(16, 185, 129, 0.3)"
                 }}>
                   <div className="spinner-border text-success mb-3" style={{ width: "3rem", height: "3rem" }} role="status"></div>
-                  <h5 className="text-white fw-bold mb-2">Analyzing Image with PyTorch</h5>
+                  <h5 className="text-white fw-bold mb-2">
+                    {mediaMode === "video" ? "Analyzing Video with PyTorch YOLO" : "Analyzing Image with PyTorch"}
+                  </h5>
                   <p className="text-secondary small mb-2" style={{ maxWidth: "340px" }}>
-                    Node.js backend has spawned the Python detection service. Evaluating YOLO tensor forward pass...
+                    {mediaMode === "video"
+                      ? "Sampling video frames, running neural forward pass, deduplicating wildlife sightings, and generating snapshot thumbnails..."
+                      : "Node.js backend has spawned the Python detection service. Evaluating YOLO tensor forward pass..."}
                   </p>
                   <div className="badge-species py-1 px-3">
-                    <span className="status-pulse me-1"></span> Processing Bounding Boxes
+                    <span className="status-pulse me-1"></span> {mediaMode === "video" ? "Processing Video Frames" : "Processing Bounding Boxes"}
                   </div>
                 </div>
               ) : (
@@ -826,10 +965,17 @@ function DetectionsPage() {
                   <div>
                     {/* Card Top: Species & Confidence */}
                     <div className="d-flex justify-content-between align-items-center mb-2">
-                      <span className="badge-species d-flex align-items-center gap-1">
-                        <span>{icon}</span>
-                        <span>{detection.species}</span>
-                      </span>
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="badge-species d-flex align-items-center gap-1">
+                          <span>{icon}</span>
+                          <span>{detection.species}</span>
+                        </span>
+                        {(detection.mediaType === "video" || detection.frameTimestamp) && (
+                          <span className="badge bg-primary bg-opacity-25 text-info" style={{ fontSize: "0.68rem" }} title="Detected in video">
+                            📹 Video
+                          </span>
+                        )}
+                      </div>
                       <span className="badge-confidence-high">
                         {confPct}% Conf
                       </span>
@@ -870,8 +1016,14 @@ function DetectionsPage() {
                         <span>Timestamp:</span>
                         <span className="text-light">{detection.timestamp}</span>
                       </div>
+                      {detection.frameTimestamp && (
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span>Frame Time:</span>
+                          <span className="text-warning fw-semibold">⏱️ {detection.frameTimestamp}</span>
+                        </div>
+                      )}
                       <div className="d-flex justify-content-between align-items-center text-truncate">
-                        <span>File:</span>
+                        <span>{detection.mediaType === "video" ? "Thumbnail:" : "File:"}</span>
                         <code className="text-secondary small text-truncate" style={{ maxWidth: "160px" }}>
                           {detection.image || "live_stream.jpg"}
                         </code>

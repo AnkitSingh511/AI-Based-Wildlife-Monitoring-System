@@ -17,6 +17,18 @@ export const detectionService = {
   },
 
   /**
+   * Upload a video file for AI/ML wildlife frame detection and automatic database record creation
+   * @param {FormData} formData
+   */
+  async uploadAndDetectVideo(formData) {
+    const data = await apiRequest("/detections/upload-detect-video", {
+      method: "POST",
+      body: formData,
+    });
+    return data.detection || data;
+  },
+
+  /**
    * Fetch all wildlife detection records
    */
   async getAllDetections() {

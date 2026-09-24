@@ -1,19 +1,19 @@
 import Detection from "../models/Detection.js";
-import { runPythonDetection } from "../services/pythonDetectionService.js";
+import { runPythonDetection, runPythonVideoDetection } from "../services/pythonDetectionService.js";
 
 // Upload image, run Python AI/ML detection, store in MongoDB, and return result
 export const detectAndCreateDetection = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({
-                message: "No image file provided. Please upload an image under form field 'image'."
+                message: "No image file provided. Please upload an image under form field 'image' or 'file'."
             });
         }
 
         const location = req.body.location?.trim() || "Zone A";
         const customTimestamp = req.body.timestamp?.trim() || "";
 
-        // Run Python AI detection via spawned process
+        // Run Python AI detection via spawned process or microservice
         const detectionResult = await runPythonDetection(
             req.file.path,
             location,
@@ -26,7 +26,8 @@ export const detectAndCreateDetection = async (req, res) => {
             confidence: detectionResult.confidence,
             location: detectionResult.location,
             timestamp: detectionResult.timestamp,
-            image: detectionResult.image
+            image: detectionResult.image,
+            mediaType: "image"
         });
 
         res.status(201).json({
@@ -37,6 +38,51 @@ export const detectAndCreateDetection = async (req, res) => {
         console.error("Detection error:", error);
         res.status(400).json({
             message: error.message || "Failed to process image detection",
+            error: error.message
+        });
+    }
+};
+
+// Upload video, run Python AI/ML frame detection, store in MongoDB, and return result
+export const detectAndCreateVideoDetection = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                message: "No video file provided. Please upload a video under form field 'video' or 'file'."
+            });
+        }
+
+        const location = req.body.location?.trim() || "Zone A";
+        const customTimestamp = req.body.timestamp?.trim() || "";
+
+        // Run Python video AI detection
+        const detectionResult = await runPythonVideoDetection(
+            req.file.path,
+            location,
+            customTimestamp
+        );
+
+        // Store detection in MongoDB with video extension fields
+        const detection = await Detection.create({
+            species: detectionResult.species,
+            confidence: detectionResult.confidence,
+            location: detectionResult.location,
+            timestamp: detectionResult.timestamp,
+            image: detectionResult.image,
+            mediaType: "video",
+            video: detectionResult.video,
+            frameTimestamp: detectionResult.frameTimestamp,
+            videoDetections: detectionResult.videoDetections || []
+        });
+
+        res.status(201).json({
+            message: "Wildlife detected in video and saved successfully",
+            detection
+        });
+    } catch (error) {
+        console.error("Video detection error:", error);
+        res.status(400).json({
+            message: error.message || "Failed to process video detection",
             error: error.message
         });
     }

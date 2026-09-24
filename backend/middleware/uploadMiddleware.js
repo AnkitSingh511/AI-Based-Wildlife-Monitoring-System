@@ -27,20 +27,53 @@ const storage = multer.diskStorage({
   },
 });
 
-// File filter accepting only standard image formats
-const fileFilter = (req, file, cb) => {
+// File filter accepting images and videos
+const mediaFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedExts = [
+    ".jpg", ".jpeg", ".png", ".webp",
+    ".mp4", ".webm", ".avi", ".mov", ".mkv"
+  ];
+
   const allowedMimeTypes = [
     "image/jpeg",
     "image/jpg",
     "image/png",
     "image/webp",
+    "video/mp4",
+    "video/webm",
+    "video/x-msvideo",
+    "video/quicktime",
+    "video/x-matroska",
+    "application/octet-stream" // Some browsers send binary stream for video
   ];
-  if (allowedMimeTypes.includes(file.mimetype.toLowerCase())) {
+
+  const mime = (file.mimetype || "").toLowerCase();
+  if (allowedExts.includes(ext) || allowedMimeTypes.includes(mime)) {
     cb(null, true);
   } else {
     cb(
       new Error(
-        "Invalid file type. Only JPEG, PNG, and WebP image uploads are allowed."
+        "Invalid file type. Only standard images (JPEG, PNG, WebP) and videos (MP4, WebM, AVI, MOV, MKV) are allowed."
+      ),
+      false
+    );
+  }
+};
+
+// Video specific filter
+const videoFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedVideoExts = [".mp4", ".webm", ".avi", ".mov", ".mkv"];
+  const isVideoMime = (file.mimetype || "").toLowerCase().startsWith("video/") ||
+                      file.mimetype === "application/octet-stream";
+
+  if (allowedVideoExts.includes(ext) || isVideoMime) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error(
+        "Invalid file type for video detection. Only MP4, WebM, AVI, MOV, and MKV files are accepted."
       ),
       false
     );
@@ -49,9 +82,17 @@ const fileFilter = (req, file, cb) => {
 
 export const upload = multer({
   storage,
-  fileFilter,
+  fileFilter: mediaFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit for media
+  },
+});
+
+export const videoUpload = multer({
+  storage,
+  fileFilter: videoFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit for video
   },
 });
 

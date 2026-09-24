@@ -182,3 +182,78 @@ async def detect_wildlife(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected internal error occurred: {str(e)}"
         )
+
+
+@app.post(
+    "/api/v1/detect-video",
+    tags=["Wildlife Video Detection"],
+    summary="Detect and classify wildlife species from an uploaded video"
+)
+async def detect_wildlife_video(
+    file: UploadFile = File(..., description="Uploaded video file (MP4, WEBM, AVI, MOV, MKV)"),
+    location: Optional[str] = Query("Zone A", description="Sanctuary location or camera zone"),
+    timestamp: Optional[str] = Query(None, description="Observation timestamp")
+):
+    """
+    Wildlife Video Detection Endpoint:
+    - Ingests uploaded video file.
+    - Samples frames at efficient frame intervals (1-2 fps).
+    - Runs PyTorch YOLO inference per frame.
+    - Deduplicates consecutive sightings of the same species.
+    - Saves thumbnail snapshots to backend uploads folder.
+    - Returns structured video detection summary and timeline of events.
+    """
+    if not file or not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No video file provided. Please upload a video file under form field 'file'."
+        )
+
+    import tempfile
+    import os
+    from detect_video import process_video
+
+    # Determine backend uploads directory
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    uploads_dir = os.path.abspath(os.path.join(script_dir, "..", "backend", "uploads"))
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    # Save uploaded video to temp file
+    suffix = os.path.splitext(file.filename)[1].lower() or ".mp4"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_vid:
+        temp_path = temp_vid.name
+        content = await file.read()
+        temp_vid.write(content)
+
+    try:
+        result = process_video(
+            video_path=temp_path,
+            output_dir=uploads_dir,
+            location=location or "Zone A",
+            timestamp=timestamp or ""
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=result.get("error", "No wildlife detected in video")
+            )
+
+        # Overwrite video filename with original upload name
+        result["video"] = file.filename
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing video: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process video: {str(e)}"
+        )
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass

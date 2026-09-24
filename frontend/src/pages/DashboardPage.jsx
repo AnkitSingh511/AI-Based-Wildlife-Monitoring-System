@@ -290,8 +290,15 @@ function DashboardPage() {
                           <div className="d-flex align-items-center gap-3">
                             <span style={{ fontSize: "1.8rem" }}>{icon}</span>
                             <div>
-                              <div className="text-white fw-semibold small">
-                                {detection.species}
+                              <div className="d-flex align-items-center gap-1">
+                                <span className="text-white fw-semibold small">
+                                  {detection.species}
+                                </span>
+                                {(detection.mediaType === "video" || detection.frameTimestamp) && (
+                                  <span className="badge bg-primary bg-opacity-25 text-info" style={{ fontSize: "0.65rem" }} title="Detected in video">
+                                    📹 {detection.frameTimestamp || "Video"}
+                                  </span>
+                                )}
                               </div>
                               <div className="small text-secondary" style={{ fontSize: "0.75rem" }}>
                                 {detection.timestamp}

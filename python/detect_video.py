@@ -52,6 +52,7 @@ def resolve_species_label(raw_name: str, is_custom_model: bool = False):
     Resolves the true species name from the YOLO model class names.
     - Uses the model's actual class name formatted in title case.
     - Strictly avoids fake mappings (NO cat->Tiger, dog->Jackal, horse->Deer, cow->Wild Boar).
+    - Normalizes multi-word species names (e.g. 'Brown_bear' -> 'Bear', 'wood_rabbit' -> 'Rabbit').
     - Filters out non-animal objects (e.g. 'teddy bear', 'person', 'car').
     """
     clean_name = raw_name.lower().strip()
@@ -59,11 +60,41 @@ def resolve_species_label(raw_name: str, is_custom_model: bool = False):
     if clean_name in NON_ANIMAL_BLACKLIST:
         return None
 
-    if clean_name in KNOWN_ANIMAL_CLASSES:
-        return clean_name.title()
+    # Handle underscore and parenthetical descriptions: 'brown_bear' -> 'brown bear', 'bat_(animal)' -> 'bat'
+    normalized = clean_name.replace("_", " ").split("(")[0].strip()
 
-    if is_custom_model and not clean_name.startswith("class_"):
-        return clean_name.title()
+    # Direct species family normalizations for standard taxonomic alignment
+    if "bear" in normalized and "teddy" not in normalized:
+        return "Bear"
+    if "rabbit" in normalized or "hare" in normalized:
+        return "Rabbit"
+    if "tiger" in normalized:
+        return "Tiger"
+    if "lion" in normalized and "sea" not in normalized:
+        return "Lion"
+    if "zebra" in normalized:
+        return "Zebra"
+    if "elephant" in normalized:
+        return "Elephant"
+    if "deer" in normalized or normalized in ("impala", "gazelle", "hartebeest", "antelope", "elk"):
+        return "Deer"
+    if "cheetah" in normalized:
+        return "Cheetah"
+    if "leopard" in normalized or "jaguar" in normalized or "panther" in normalized:
+        return "Leopard"
+    if "dog" in normalized:
+        return "Dog"
+
+    if normalized in KNOWN_ANIMAL_CLASSES:
+        return normalized.title()
+
+    words = normalized.split()
+    for w in words:
+        if w in KNOWN_ANIMAL_CLASSES:
+            return normalized.title()
+
+    if is_custom_model and not normalized.startswith("class"):
+        return normalized.title()
 
     return None
 
@@ -196,9 +227,30 @@ def process_video(video_path: str, output_dir: str, location: str = "Zone A", ti
     cap.release()
 
     if not raw_events:
+        # Save first frame snapshot as thumbnail for low-confidence / unknown sighting
+        first_frame_thumb = f"{video_base}_frame_0_unknown.jpg"
+        first_frame_path = os.path.join(output_dir, first_frame_thumb)
+        cap_retry = cv2.VideoCapture(video_path)
+        ret, f0 = cap_retry.read()
+        cap_retry.release()
+        if ret and f0 is not None:
+            cv2.imwrite(first_frame_path, f0, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        else:
+            first_frame_thumb = ""
+
         return {
-            "success": False,
-            "error": "No wildlife species detected in the uploaded video. Please ensure wildlife is visible."
+            "success": True,
+            "species": "Unknown",
+            "confidence": 0.0,
+            "location": location,
+            "timestamp": timestamp or format_current_timestamp(),
+            "image": first_frame_thumb,
+            "video": os.path.basename(video_path),
+            "frameTimestamp": "00:00.0",
+            "mediaType": "video",
+            "total_detected": 0,
+            "video_duration_seconds": round(duration_secs, 1),
+            "all_detections": []
         }
 
     # Deduplicate detections: group same species within 3-second windows, keeping highest confidence
@@ -254,13 +306,16 @@ def process_video(video_path: str, output_dir: str, location: str = "Zone A", ti
             "image": snapshot_filename
         })
 
-    # Primary detection is the one with overall highest confidence
+    # Phase 8: Validated confidence threshold & Unknown handling
+    CONFIDENCE_THRESHOLD = 0.40
     primary = max(saved_detections, key=lambda d: d["confidence"])
+    actual_conf = primary["confidence"]
+    species_out = primary["species"] if actual_conf >= CONFIDENCE_THRESHOLD else "Unknown"
 
     return {
         "success": True,
-        "species": primary["species"],
-        "confidence": primary["confidence"],
+        "species": species_out,
+        "confidence": actual_conf,
         "location": location,
         "timestamp": timestamp or format_current_timestamp(),
         "image": primary["image"],

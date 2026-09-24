@@ -238,9 +238,13 @@ export async function runPythonDetection(imagePath, location = "Zone A", timesta
         const data = await response.json();
         if (data.success && data.detections && data.detections.length > 0) {
           const primary = data.detections[0];
+          const rawConf = primary.confidence;
+          const roundedConf = Math.round(rawConf * 100) / 100;
+          const speciesOut = roundedConf >= 0.40 ? primary.species : "Unknown";
+
           return {
-            species: primary.species,
-            confidence: Math.round(primary.confidence * 100) / 100,
+            species: speciesOut,
+            confidence: roundedConf,
             location: location || "Zone A",
             timestamp: effectiveTimestamp,
             image: filename,
@@ -249,7 +253,16 @@ export async function runPythonDetection(imagePath, location = "Zone A", timesta
             all_detections: data.detections
           };
         } else {
-          throw new Error("No wildlife species detected in the image.");
+          return {
+            species: "Unknown",
+            confidence: 0.0,
+            location: location || "Zone A",
+            timestamp: effectiveTimestamp,
+            image: filename,
+            mediaType: "image",
+            total_detected: 0,
+            all_detections: []
+          };
         }
       } else {
         const errorData = await response.json().catch(() => ({}));

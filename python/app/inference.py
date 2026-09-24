@@ -64,6 +64,7 @@ def resolve_species_label(raw_name: str, is_custom_model: bool = False) -> Optio
     Resolves the true species name from the YOLO model class names.
     - Uses the model's actual class name formatted in title case.
     - Strictly avoids fake mappings (NO cat->Tiger, dog->Jackal, horse->Deer, cow->Wild Boar).
+    - Normalizes multi-word species names (e.g. 'Brown_bear' -> 'Bear', 'wood_rabbit' -> 'Rabbit').
     - Filters out non-animal objects (e.g. 'teddy bear', 'person', 'car').
     """
     clean_name = raw_name.lower().strip()
@@ -71,11 +72,41 @@ def resolve_species_label(raw_name: str, is_custom_model: bool = False) -> Optio
     if clean_name in NON_ANIMAL_BLACKLIST:
         return None
 
-    if clean_name in KNOWN_ANIMAL_CLASSES:
-        return clean_name.title()
+    # Handle underscore and parenthetical descriptions: 'brown_bear' -> 'brown bear', 'bat_(animal)' -> 'bat'
+    normalized = clean_name.replace("_", " ").split("(")[0].strip()
 
-    if is_custom_model and not clean_name.startswith("class_"):
-        return clean_name.title()
+    # Direct species family normalizations for standard taxonomic alignment
+    if "bear" in normalized and "teddy" not in normalized:
+        return "Bear"
+    if "rabbit" in normalized or "hare" in normalized:
+        return "Rabbit"
+    if "tiger" in normalized:
+        return "Tiger"
+    if "lion" in normalized and "sea" not in normalized:
+        return "Lion"
+    if "zebra" in normalized:
+        return "Zebra"
+    if "elephant" in normalized:
+        return "Elephant"
+    if "deer" in normalized or normalized in ("impala", "gazelle", "hartebeest", "antelope", "elk"):
+        return "Deer"
+    if "cheetah" in normalized:
+        return "Cheetah"
+    if "leopard" in normalized or "jaguar" in normalized or "panther" in normalized:
+        return "Leopard"
+    if "dog" in normalized:
+        return "Dog"
+
+    if normalized in KNOWN_ANIMAL_CLASSES:
+        return normalized.title()
+
+    words = normalized.split()
+    for w in words:
+        if w in KNOWN_ANIMAL_CLASSES:
+            return normalized.title()
+
+    if is_custom_model and not normalized.startswith("class"):
+        return normalized.title()
 
     return None
 

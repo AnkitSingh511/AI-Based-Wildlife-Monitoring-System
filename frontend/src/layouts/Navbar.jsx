@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,7 +36,7 @@ function Navbar() {
             Wildlife<span style={{ color: 'var(--primary)' }}>Guard</span>
           </span>
           <span className="d-none d-md-inline-block badge-species ms-2 py-1 px-2" style={{ fontSize: '0.72rem' }}>
-            <span className="status-pulse me-1"></span> AI Monitored
+            <span className="status-pulse me-1"></span> Active Surveillance
           </span>
         </Link>
 

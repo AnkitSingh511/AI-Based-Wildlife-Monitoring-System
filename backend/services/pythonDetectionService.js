@@ -236,8 +236,30 @@ export async function runPythonDetection(imagePath, location = "Zone A", timesta
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.detections && data.detections.length > 0) {
-          const primary = data.detections[0];
+        const detectionsList = data.detections || [];
+        const boundingBoxes = detectionsList.map((d) => ({
+          species: d.species,
+          confidence: d.confidence,
+          box: d.bounding_box
+            ? [d.bounding_box.x1, d.bounding_box.y1, d.bounding_box.x2, d.bounding_box.y2]
+            : (d.box || [])
+        }));
+
+        let savedAnnotatedName = "";
+        if (data.annotated_image && data.annotated_image.startsWith("data:image/jpeg;base64,")) {
+          try {
+            const base64Data = data.annotated_image.replace(/^data:image\/jpeg;base64,/, "");
+            const baseName = path.splitext ? path.basename(imagePath, path.extname(imagePath)) : path.basename(imagePath).split(".")[0];
+            savedAnnotatedName = `annotated_${baseName}.jpg`;
+            const annotatedSavePath = path.join(path.dirname(imagePath), savedAnnotatedName);
+            await fs.promises.writeFile(annotatedSavePath, Buffer.from(base64Data, "base64"));
+          } catch (writeErr) {
+            console.warn("[Python Detection Service] Could not save annotated image to disk:", writeErr.message);
+          }
+        }
+
+        if (data.success && detectionsList.length > 0) {
+          const primary = detectionsList[0];
           const rawConf = primary.confidence;
           const roundedConf = Math.round(rawConf * 100) / 100;
           const speciesOut = roundedConf >= 0.40 ? primary.species : "Unknown";
@@ -248,9 +270,13 @@ export async function runPythonDetection(imagePath, location = "Zone A", timesta
             location: location || "Zone A",
             timestamp: effectiveTimestamp,
             image: filename,
+            annotatedImage: savedAnnotatedName || filename,
             mediaType: "image",
-            total_detected: data.total_detections || data.detections.length,
-            all_detections: data.detections
+            total_detected: data.total_detections || detectionsList.length,
+            all_detections: detectionsList,
+            boundingBoxes: boundingBoxes,
+            imageWidth: data.image_width || null,
+            imageHeight: data.image_height || null
           };
         } else {
           return {
@@ -259,9 +285,13 @@ export async function runPythonDetection(imagePath, location = "Zone A", timesta
             location: location || "Zone A",
             timestamp: effectiveTimestamp,
             image: filename,
+            annotatedImage: "",
             mediaType: "image",
             total_detected: 0,
-            all_detections: []
+            all_detections: [],
+            boundingBoxes: [],
+            imageWidth: data.image_width || null,
+            imageHeight: data.image_height || null
           };
         }
       } else {
@@ -277,15 +307,25 @@ export async function runPythonDetection(imagePath, location = "Zone A", timesta
   const args = [imagePath, location || "Zone A", effectiveTimestamp];
   const result = await runPythonScriptProcess("detect.py", args, 60000);
 
+  const fallbackBoxes = (result.all_detections || []).map((d) => ({
+    species: d.species,
+    confidence: d.confidence,
+    box: d.box || (d.bounding_box ? [d.bounding_box.x1, d.bounding_box.y1, d.bounding_box.x2, d.bounding_box.y2] : [])
+  }));
+
   return {
     species: result.species,
     confidence: Math.round(Number(result.confidence) * 100) / 100,
     location: result.location || location || "Zone A",
     timestamp: result.timestamp || effectiveTimestamp,
     image: result.image || path.basename(imagePath),
+    annotatedImage: result.annotated_image || result.image || path.basename(imagePath),
     mediaType: "image",
-    total_detected: result.total_detected || 1,
-    all_detections: result.all_detections || []
+    total_detected: result.total_detected || (result.species !== "Unknown" ? 1 : 0),
+    all_detections: result.all_detections || [],
+    boundingBoxes: fallbackBoxes,
+    imageWidth: result.image_width || null,
+    imageHeight: result.image_height || null
   };
 }
 

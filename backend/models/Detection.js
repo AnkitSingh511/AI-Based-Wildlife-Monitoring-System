@@ -53,6 +53,17 @@ const detectionSchema = new mongoose.Schema({
     videoDetections: {
         type: Array,
         default: []
+    },
+
+    boundingBoxes: {
+        type: Array,
+        default: []
+    },
+
+    annotatedImage: {
+        type: String,
+        trim: true,
+        default: ""
     }
 }, { 
     timestamps: true,

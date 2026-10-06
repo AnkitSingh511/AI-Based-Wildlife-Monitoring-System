@@ -32,14 +32,28 @@ function DashboardPage() {
       const data = await detectionService.getAllDetections();
       setDetections(data);
     } catch (err) {
-      setError(err.message || "Failed to load dashboard telemetry.");
+      setError(err.message || "Unable to load dashboard records. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadDashboardData();
+    let active = true;
+    (async () => {
+      try {
+        const data = await detectionService.getAllDetections();
+        if (active) setDetections(data);
+      } catch (err) {
+        if (active) setError(err.message || "Unable to load dashboard records. Please try again.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Compute metrics
@@ -104,14 +118,14 @@ function DashboardPage() {
         <div>
           <h2 className="text-white fw-bold mb-1">Monitoring Dashboard</h2>
           <p className="text-secondary mb-0">
-            System metrics and detection surveillance feed overview.
+            Wildlife activity summaries, species metrics, and recent sightings overview.
           </p>
         </div>
 
         <div className="d-flex align-items-center gap-2">
           <span className="badge-species">
             <span className="status-pulse me-1"></span>
-            Live Telemetry
+            Live Monitoring
           </span>
           <button
             type="button"
@@ -143,7 +157,7 @@ function DashboardPage() {
       {loading ? (
         <div className="text-center py-5">
           <div className="spinner-border text-success mb-3" role="status"></div>
-          <p className="text-secondary">Aggregating telemetry from database...</p>
+          <p className="text-secondary">Loading detection summaries...</p>
         </div>
       ) : (
         <>
@@ -156,7 +170,7 @@ function DashboardPage() {
                   <span style={{ fontSize: "1.3rem" }}>📡</span>
                 </div>
                 <div className="h2 text-white fw-bold mb-1">{metrics.total}</div>
-                <div className="small text-secondary">Recorded in database</div>
+                <div className="small text-secondary">Verified Sightings</div>
               </div>
             </div>
 
@@ -167,7 +181,7 @@ function DashboardPage() {
                   <span style={{ fontSize: "1.3rem" }}>🎯</span>
                 </div>
                 <div className="h2 text-white fw-bold mb-1">{metrics.avgConfidence}%</div>
-                <div className="small text-secondary">Neural model accuracy</div>
+                <div className="small text-secondary">Detection Accuracy</div>
               </div>
             </div>
 
@@ -323,7 +337,7 @@ function DashboardPage() {
             </div>
           </div>
 
-          {/* Neural Engine & Server Status */}
+          {/* Monitoring System Status Bar */}
           <div
             className="wildlife-card p-3 d-flex flex-column flex-md-row align-items-center justify-content-between gap-2"
             style={{
@@ -333,14 +347,14 @@ function DashboardPage() {
             <div className="d-flex align-items-center gap-2">
               <span className="status-pulse"></span>
               <span className="small text-white fw-semibold">
-                Wildlife Guard Backend & Telemetry Pipeline Online
+                Wildlife Guard Surveillance System Active
               </span>
             </div>
             <div className="d-flex align-items-center gap-3 small text-secondary">
-              <span>Database: <code className="text-success">Connected</code></span>
-              <span>Port: <code className="text-light">5000</code></span>
+              <span>Status: <span className="text-success fw-semibold">Online</span></span>
+              <span>Coverage: <span className="text-light">All Sanctuary Zones</span></span>
               <Link to="/detections" className="btn btn-sm btn-wildlife-primary py-1 px-3">
-                Log New Sighting
+                Detect Wildlife
               </Link>
             </div>
           </div>

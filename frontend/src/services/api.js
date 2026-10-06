@@ -48,7 +48,10 @@ export async function apiRequest(endpoint, options = {}) {
   } catch (error) {
     // If it's a network error or fetch failure
     if (!error.status) {
-      console.error(`Network error connecting to API at ${url}:`, error);
+      console.error(`Connection error at ${url}:`, error);
+      const friendlyError = new Error("Unable to connect to the wildlife surveillance service. Please try again.");
+      friendlyError.originalError = error;
+      throw friendlyError;
     }
     throw error;
   }

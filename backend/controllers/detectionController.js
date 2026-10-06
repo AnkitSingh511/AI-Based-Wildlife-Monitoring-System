@@ -1,3 +1,4 @@
+import fs from "fs";
 import mongoose from "mongoose";
 import Detection from "../models/Detection.js";
 import { runPythonDetection, runPythonVideoDetection } from "../services/pythonDetectionService.js";
@@ -61,7 +62,9 @@ export const detectAndCreateDetection = async (req, res) => {
             location: detectionResult.location,
             timestamp: detectionResult.timestamp,
             image: detectionResult.image,
-            mediaType: "image"
+            mediaType: "image",
+            boundingBoxes: detectionResult.boundingBoxes || [],
+            annotatedImage: detectionResult.annotatedImage || ""
         });
 
         // Step 4: Track detection and analyze anomalies with python_detect_tracker
@@ -82,7 +85,12 @@ export const detectAndCreateDetection = async (req, res) => {
             message: "Wildlife detected and saved successfully",
             detection,
             alert: alertInfo,
-            tracked: trackedInfo
+            tracked: trackedInfo,
+            boundingBoxes: detectionResult.boundingBoxes || [],
+            annotatedImage: detectionResult.annotatedImage || "",
+            all_detections: detectionResult.all_detections || [],
+            imageWidth: detectionResult.imageWidth || null,
+            imageHeight: detectionResult.imageHeight || null
         });
     } catch (error) {
         console.error("Detection error:", error);
@@ -405,3 +413,101 @@ export const getWildlifeAlerts = async (req, res) => {
         });
     }
 };
+
+/**
+ * Real-time Live Frame AI Detection
+ * Accepts single frame from live camera stream, runs Python inference without spawning overhead,
+ * cleans up temp frame, and returns bounding boxes, labels, confidence scores and image dimensions.
+ */
+export const liveFrameDetection = async (req, res) => {
+    let filePath = null;
+    try {
+        const file = req.file || (req.files && (req.files.image?.[0] || req.files.file?.[0]));
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                message: "No live frame received."
+            });
+        }
+        filePath = file.path;
+
+        const location = req.body.location?.trim() || "Zone A";
+        const customTimestamp = req.body.timestamp?.trim() || "";
+        const saveToDb = req.body.saveToDb === "true" || req.body.saveToDb === true;
+
+        // Run Python AI detection
+        const detectionResult = await runPythonDetection(
+            filePath,
+            location,
+            customTimestamp
+        );
+
+        let savedDetection = null;
+        let alertInfo = null;
+
+        // If user requested to record/save this sighting into MongoDB
+        if (saveToDb && isDbConnected() && detectionResult.species !== "Unknown") {
+            try {
+                savedDetection = await Detection.create({
+                    species: detectionResult.species,
+                    confidence: detectionResult.confidence,
+                    location: detectionResult.location,
+                    timestamp: detectionResult.timestamp,
+                    image: detectionResult.image,
+                    mediaType: "image",
+                    boundingBoxes: detectionResult.boundingBoxes || [],
+                    annotatedImage: detectionResult.annotatedImage || ""
+                });
+
+                try {
+                    const trackedInfo = trackSingleDetection(savedDetection.toObject());
+                    const anomalies = analyzeDetections([trackedInfo]);
+                    if (anomalies.length > 0) {
+                        alertInfo = generateAlert(anomalies[0]);
+                    }
+                } catch (trackerErr) {
+                    console.warn("[Tracker] Non-fatal live frame tracking notice:", trackerErr.message);
+                }
+            } catch (saveErr) {
+                console.warn("[Live Frame] Could not save detection to DB:", saveErr.message);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            detected: detectionResult.species !== "Unknown" && (detectionResult.total_detected > 0 || detectionResult.confidence >= 0.40),
+            species: detectionResult.species,
+            confidence: detectionResult.confidence,
+            total_detected: detectionResult.total_detected || 0,
+            all_detections: detectionResult.all_detections || [],
+            boundingBoxes: detectionResult.boundingBoxes || [],
+            annotatedImage: detectionResult.annotatedImage || "",
+            imageWidth: detectionResult.imageWidth || null,
+            imageHeight: detectionResult.imageHeight || null,
+            location: detectionResult.location,
+            timestamp: detectionResult.timestamp,
+            saved: !!savedDetection,
+            detection: savedDetection,
+            alert: alertInfo
+        });
+    } catch (error) {
+        console.error("Live frame detection error:", error.message);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Failed to process live frame",
+            error: error.message
+        });
+    } finally {
+        // Clean up temporary live frame unless it was persisted to database
+        if (filePath && fs.existsSync(filePath)) {
+            const saveToDb = req.body.saveToDb === "true" || req.body.saveToDb === true;
+            if (!saveToDb) {
+                try {
+                    fs.unlinkSync(filePath);
+                } catch (unlinkErr) {
+                    // Ignore non-fatal unlink error
+                }
+            }
+        }
+    }
+};

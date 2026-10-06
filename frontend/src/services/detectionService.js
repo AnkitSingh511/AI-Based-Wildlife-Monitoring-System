@@ -13,7 +13,30 @@ export const detectionService = {
       method: "POST",
       body: formData,
     });
-    return data.detection || data;
+    if (data.detection) {
+      return {
+        ...data.detection,
+        boundingBoxes: data.boundingBoxes || data.detection.boundingBoxes || [],
+        annotatedImage: data.annotatedImage || data.detection.annotatedImage || "",
+        all_detections: data.all_detections || [],
+        imageWidth: data.imageWidth,
+        imageHeight: data.imageHeight,
+        alert: data.alert,
+        tracked: data.tracked
+      };
+    }
+    return data;
+  },
+
+  /**
+   * Send a live camera frame to backend for real-time AI inference
+   * @param {FormData} formData - Contains 'image' blob, location, and optional saveToDb
+   */
+  async detectLiveFrame(formData) {
+    return await apiRequest("/detections/live-frame", {
+      method: "POST",
+      body: formData,
+    });
   },
 
   /**
@@ -25,7 +48,15 @@ export const detectionService = {
       method: "POST",
       body: formData,
     });
-    return data.detection || data;
+    if (data.detection) {
+      return {
+        ...data.detection,
+        videoDetections: data.detection.videoDetections || [],
+        alert: data.alert,
+        tracked: data.tracked
+      };
+    }
+    return data;
   },
 
   /**

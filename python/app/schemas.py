@@ -42,6 +42,9 @@ class DetectionResponse(BaseModel):
     detections: List[Detection] = Field(default_factory=list, description="List of detected wildlife objects")
     total_detections: int = Field(..., description="Count of detected objects in image")
     message: Optional[str] = Field(None, description="Optional status message or warning")
+    image_width: Optional[int] = Field(None, description="Original image width in pixels")
+    image_height: Optional[int] = Field(None, description="Original image height in pixels")
+    annotated_image: Optional[str] = Field(None, description="Base64 or URL of annotated image with bounding boxes")
 
 
 class HealthResponse(BaseModel):

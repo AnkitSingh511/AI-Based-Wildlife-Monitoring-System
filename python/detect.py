@@ -259,6 +259,7 @@ def main():
     # Validated confidence threshold for wildlife species identification
     CONFIDENCE_THRESHOLD = 0.40
     image_filename = os.path.basename(image_path)
+    img_w, img_h = img.size
 
     if not detections:
         # No object detected above base threshold: report Unknown with actual 0.00 confidence
@@ -269,6 +270,9 @@ def main():
             "location": location,
             "timestamp": timestamp,
             "image": image_filename,
+            "annotated_image": "",
+            "image_width": img_w,
+            "image_height": img_h,
             "total_detected": 0,
             "all_detections": []
         }
@@ -285,6 +289,27 @@ def main():
     else:
         species_out = primary["species"]
 
+    # Generate annotated image
+    annotated_filename = ""
+    try:
+        from PIL import ImageDraw
+        annotated_img = img.copy()
+        draw = ImageDraw.Draw(annotated_img)
+        for det in detections:
+            box = det["box"]
+            x1, y1, x2, y2 = box
+            draw.rectangle([x1, y1, x2, y2], outline="#10b981", width=3)
+            lbl = f"{det['species']} {int(det['confidence'] * 100)}%"
+            draw.rectangle([x1, max(0, y1 - 20), x1 + len(lbl) * 8 + 8, y1], fill="#10b981")
+            draw.text((x1 + 4, max(1, y1 - 18)), lbl, fill="#ffffff")
+
+        base_name = os.path.splitext(image_filename)[0]
+        annotated_filename = f"annotated_{base_name}.jpg"
+        annotated_path = os.path.join(os.path.dirname(image_path), annotated_filename)
+        annotated_img.save(annotated_path, "JPEG", quality=88)
+    except Exception:
+        annotated_filename = ""
+
     response = {
         "success": True,
         "species": species_out,
@@ -292,6 +317,9 @@ def main():
         "location": location,
         "timestamp": timestamp,
         "image": image_filename,
+        "annotated_image": annotated_filename,
+        "image_width": img_w,
+        "image_height": img_h,
         "total_detected": len(detections),
         "all_detections": detections
     }

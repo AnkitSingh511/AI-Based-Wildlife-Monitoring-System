@@ -9,11 +9,15 @@ import {
     updateDetection,
     deleteDetection,
     getWildlifeAlerts,
-    getTrackingHistory
+    getTrackingHistory,
+    liveFrameDetection
 } from "../controllers/detectionController.js";
 import { uploadImageFlexible, uploadVideoFlexible } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
+
+// Real-time Live Camera AI Detection endpoint
+router.post("/live-frame", uploadImageFlexible, liveFrameDetection);
 
 // AI Wildlife Alerts & Tracking endpoints (from python_detect_tracker)
 router.get("/alerts", getWildlifeAlerts);

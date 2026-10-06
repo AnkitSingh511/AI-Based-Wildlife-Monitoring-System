@@ -157,11 +157,37 @@ async def detect_wildlife(
         effective_conf = confidence_threshold if confidence_threshold is not None else settings.CONFIDENCE_THRESHOLD
         detections = detector.predict(preprocessed_image, conf_threshold=effective_conf)
 
+        img_w, img_h = preprocessed_image.size
+        annotated_b64 = None
+        if detections:
+            try:
+                import io
+                import base64
+                from PIL import ImageDraw
+                annotated_img = preprocessed_image.copy()
+                draw = ImageDraw.Draw(annotated_img)
+                for det in detections:
+                    box = [det.bounding_box.x1, det.bounding_box.y1, det.bounding_box.x2, det.bounding_box.y2]
+                    draw.rectangle(box, outline="#10b981", width=3)
+                    lbl = f"{det.species} {int(det.confidence * 100)}%"
+                    # Draw background banner for label text
+                    draw.rectangle([box[0], max(0, box[1] - 20), box[0] + len(lbl) * 8 + 8, box[1]], fill="#10b981")
+                    draw.text((box[0] + 4, max(1, box[1] - 18)), lbl, fill="#ffffff")
+
+                buf = io.BytesIO()
+                annotated_img.save(buf, format="JPEG", quality=85)
+                annotated_b64 = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
+            except Exception as annot_err:
+                logger.warning(f"Could not generate annotated image: {annot_err}")
+
         return DetectionResponse(
             success=True,
             detections=detections,
             total_detections=len(detections),
-            message=f"Successfully processed image. Detected {len(detections)} object(s)."
+            message=f"Successfully processed image. Detected {len(detections)} object(s).",
+            image_width=img_w,
+            image_height=img_h,
+            annotated_image=annotated_b64
         )
 
     except ModelNotLoadedError as e:
@@ -211,10 +237,16 @@ async def detect_wildlife_video(
 
     import tempfile
     import os
+    import sys
+
+    # Ensure parent python directory is in sys.path to prevent import miss path errors
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+
     from detect_video import process_video
 
     # Determine backend uploads directory
-    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     uploads_dir = os.path.abspath(os.path.join(script_dir, "..", "backend", "uploads"))
     os.makedirs(uploads_dir, exist_ok=True)
 

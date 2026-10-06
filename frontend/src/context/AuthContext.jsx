@@ -1,21 +1,11 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { useState } from "react";
 import authService from "../services/authService";
-
-const AuthContext = createContext(null);
+import { AuthContext } from "./authContextDef";
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => authService.getToken());
   const [user, setUser] = useState(() => authService.getCurrentUser());
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Sync state on initial load
-    const storedToken = authService.getToken();
-    const storedUser = authService.getCurrentUser();
-    setToken(storedToken);
-    setUser(storedUser);
-    setLoading(false);
-  }, []);
+  const [loading] = useState(false);
 
   const login = async (credentials) => {
     const result = await authService.login(credentials);
@@ -48,12 +38,4 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
-
-export default AuthContext;
+export default AuthProvider;
